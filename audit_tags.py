@@ -27,6 +27,7 @@ def main(path: str, json_output: bool, warn_only: bool, filter_provider: str, fi
 
     logger.info(f"Scanning directory: {path}")
     for root, _, files in os.walk(path):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
         for file in files:
             if file.endswith((".tf", ".hcl")):
                 full_path = os.path.join(root, file)
