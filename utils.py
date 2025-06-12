@@ -1,5 +1,6 @@
 import hcl2
 
+
 def parse_hcl_file(file_path):
     try:
         with open(file_path, 'r') as f:
@@ -7,20 +8,15 @@ def parse_hcl_file(file_path):
     except Exception:
         return None
 
+
 def find_provider_default_tags(blocks):
-    """
-    Looks for provider blocks with default_tags.
-    Supports typical hcl2 structure.
-    """
     provider_tags = {}
 
     if not isinstance(blocks, list):
         return provider_tags
 
     for block in blocks:
-        if not isinstance(block, dict):
-            continue
-        if "provider" not in block:
+        if not isinstance(block, dict) or "provider" not in block:
             continue
 
         provider_block = block["provider"]
@@ -41,19 +37,15 @@ def find_provider_default_tags(blocks):
                         provider_tags[provider_name] = tags
     return provider_tags
 
-def find_resources_missing_tags(blocks, provider_tags):
-    """
-    Finds resources that don't have tags and don't inherit from provider default_tags.
-    """
+
+def find_resources_missing_tags(blocks, provider_tags, filter_provider=None, filter_resource=None):
     untagged = []
 
     if not isinstance(blocks, list):
         return untagged
 
     for block in blocks:
-        if not isinstance(block, dict):
-            continue
-        if "resource" not in block:
+        if not isinstance(block, dict) or "resource" not in block:
             continue
 
         resource_block = block["resource"]
@@ -61,20 +53,25 @@ def find_resources_missing_tags(blocks, provider_tags):
             continue
 
         for res_type, instances in resource_block.items():
+            if filter_resource and res_type != filter_resource:
+                continue
             if not isinstance(instances, dict):
                 continue
             for res_name, res_config in instances.items():
                 if not isinstance(res_config, dict):
                     continue
+
                 has_tags = "tags" in res_config
                 inherits_tags = any(
                     prov for prov, tags in provider_tags.items()
-                    if prov.startswith("aws") and tags
+                    if (not filter_provider or prov.startswith(filter_provider)) and tags
                 )
+
                 if not has_tags and not inherits_tags:
                     untagged.append({
                         "type": res_type,
                         "name": res_name
                     })
+
     return untagged
 
