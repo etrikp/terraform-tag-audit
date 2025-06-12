@@ -7,19 +7,21 @@ def parse_hcl_file(file_path):
     except Exception:
         return None
 
-def find_provider_default_tags(data):
+def find_provider_default_tags(blocks):
     """
     Looks for provider blocks with default_tags.
-    Supports both list and dict formats.
+    Handles list-based top-level structure from python-hcl2.
     """
     provider_tags = {}
 
-    if "provider" in data:
-        for provider_block in data["provider"]:
+    for block in blocks:
+        if "provider" in block:
+            provider_block = block["provider"]
             for provider_name, provider_config in provider_block.items():
+                # provider_config can be a list of dicts
                 if isinstance(provider_config, list):
                     for conf in provider_config:
-                        if "default_tags" in conf:
+                        if isinstance(conf, dict) and "default_tags" in conf:
                             tags = conf["default_tags"].get("tags", {})
                             if tags:
                                 provider_tags[provider_name] = tags
@@ -30,17 +32,19 @@ def find_provider_default_tags(data):
                             provider_tags[provider_name] = tags
     return provider_tags
 
-def find_resources_missing_tags(data, provider_tags):
+def find_resources_missing_tags(blocks, provider_tags):
     """
     Finds resources that don't have tags and don't inherit them via provider.
-    Supports both list and dict formats.
     """
     untagged = []
 
-    if "resource" in data:
-        for resource_block in data["resource"]:
-            for res_type, instances in resource_block.items():
-                for res_name, res_config in instances.items():
+    for block in blocks:
+        if "resource" in block:
+            resource_block = block["resource"]
+            for res_type, resources in resource_block.items():
+                for res_name, res_config in resources.items():
+                    if not isinstance(res_config, dict):
+                        continue
                     has_tags = "tags" in res_config
                     inherits_tags = any(
                         prov for prov, tags in provider_tags.items()
@@ -51,6 +55,5 @@ def find_resources_missing_tags(data, provider_tags):
                             "type": res_type,
                             "name": res_name
                         })
-
     return untagged
 
