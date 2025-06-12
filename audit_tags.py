@@ -26,12 +26,20 @@ def main(path: str, json_output: bool, warn_only: bool, filter_provider: str, fi
 
     logger.info(f"Scanning directory: {path}")
     for root, dirs, files in os.walk(path):
-        # Exclude hidden directories
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        # Exclude hidden directories and symlinked directories
+        dirs[:] = [
+            d for d in dirs
+            if not d.startswith(".") and not os.path.islink(os.path.join(root, d))
+        ]
 
         for file in files:
+            full_path = os.path.join(root, file)
+
+            # Skip hidden or symlinked files
+            if file.startswith(".") or os.path.islink(full_path):
+                continue
+
             if file.endswith((".tf", ".hcl")):
-                full_path = os.path.join(root, file)
                 logger.debug(f"Parsing file: {full_path}")
                 data = parse_hcl_file(full_path)
                 if not data:
