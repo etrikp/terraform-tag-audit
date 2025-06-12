@@ -21,7 +21,6 @@ def configure_logging(debug: bool):
 
 def main(path: str, json_output: bool, warn_only: bool, filter_provider: str, filter_resource: str):
     provider_tags = {}
-    all_resources = []
     untagged_resources = []
 
     logger.info(f"Scanning directory: {path}")
@@ -46,17 +45,20 @@ def main(path: str, json_output: bool, warn_only: bool, filter_provider: str, fi
                     logger.warning(f"Failed to parse: {full_path}")
                     continue
 
+                logger.debug(f"Extracting provider tags from: {full_path}")
                 provider_tags.update(find_provider_default_tags(data))
 
+                logger.debug(f"Checking resources in: {full_path}")
                 resources = find_resources_missing_tags(
                     data,
                     provider_tags,
                     filter_provider=filter_provider,
                     filter_resource=filter_resource,
                 )
+
                 if resources:
+                    logger.debug(f"Found {len(resources)} untagged resource(s) in {full_path}")
                     untagged_resources.extend([(full_path, r) for r in resources])
-                all_resources.extend(resources)
 
     if json_output:
         report = [
@@ -65,15 +67,15 @@ def main(path: str, json_output: bool, warn_only: bool, filter_provider: str, fi
         ]
         print(json.dumps(report, indent=2))
     else:
-        table = Table(title="Untagged Resources Report")
-        table.add_column("File", style="cyan")
-        table.add_column("Resource Type", style="magenta")
-        table.add_column("Resource Name", style="green")
-
-        for file_path, res in untagged_resources:
-            table.add_row(file_path, res["type"], res["name"])
-
         if untagged_resources:
+            table = Table(title="Untagged Resources Report")
+            table.add_column("File", style="cyan")
+            table.add_column("Resource Type", style="magenta")
+            table.add_column("Resource Name", style="green")
+
+            for file_path, res in untagged_resources:
+                table.add_row(file_path, res["type"], res["name"])
+
             console.print(table)
 
     if untagged_resources:

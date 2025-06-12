@@ -2,6 +2,10 @@ import hcl2
 
 
 def parse_hcl_file(file_path):
+    """
+    Parses an HCL (.tf or .hcl) file and returns the data as a list of blocks.
+    Returns None on error.
+    """
     try:
         with open(file_path, 'r') as f:
             return hcl2.load(f)
@@ -10,6 +14,11 @@ def parse_hcl_file(file_path):
 
 
 def find_provider_default_tags(blocks):
+    """
+    Extracts any default tags set at the provider level.
+    Supports multiple providers and multiple configurations per provider.
+    Returns a dict of provider name -> default tags dict.
+    """
     provider_tags = {}
 
     if not isinstance(blocks, list):
@@ -35,10 +44,17 @@ def find_provider_default_tags(blocks):
                     tags = provider_config["default_tags"].get("tags", {})
                     if tags:
                         provider_tags[provider_name] = tags
+
     return provider_tags
 
 
 def find_resources_missing_tags(blocks, provider_tags, filter_provider=None, filter_resource=None):
+    """
+    Finds resources that:
+      - Do not have a 'tags' block, or the 'tags' block is empty
+      - And do not inherit from a provider with default_tags
+    Returns a list of dicts with keys: 'type' and 'name'
+    """
     untagged = []
 
     if not isinstance(blocks, list):
@@ -57,15 +73,20 @@ def find_resources_missing_tags(blocks, provider_tags, filter_provider=None, fil
                 continue
             if not isinstance(instances, dict):
                 continue
+
             for res_name, res_config in instances.items():
                 if not isinstance(res_config, dict):
                     continue
 
-                has_tags = "tags" in res_config
-                inherits_tags = any(
-                    prov for prov, tags in provider_tags.items()
-                    if (not filter_provider or prov.startswith(filter_provider)) and tags
-                )
+                # Skip if provider filter doesn't match
+                if filter_provider and not res_type.startswith(filter_provider):
+                    continue
+
+                # Explicit tags defined?
+                has_tags = "tags" in res_config and bool(res_config["tags"])
+
+                # Inherits from provider with default tags?
+                inherits_tags = bool(provider_tags)
 
                 if not has_tags and not inherits_tags:
                     untagged.append({
