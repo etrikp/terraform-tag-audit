@@ -4,7 +4,6 @@ import argparse
 import json
 import logging
 from utils import parse_hcl_file, find_provider_default_tags, find_resources_missing_tags
-
 from rich.console import Console
 from rich.table import Table
 
@@ -26,8 +25,10 @@ def main(path: str, json_output: bool, warn_only: bool, filter_provider: str, fi
     untagged_resources = []
 
     logger.info(f"Scanning directory: {path}")
-    for root, _, files in os.walk(path):
+    for root, dirs, files in os.walk(path):
+        # Exclude hidden directories
         dirs[:] = [d for d in dirs if not d.startswith(".")]
+
         for file in files:
             if file.endswith((".tf", ".hcl")):
                 full_path = os.path.join(root, file)
